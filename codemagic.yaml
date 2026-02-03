@@ -15,6 +15,11 @@ workflows:
           keychain initialize
       - name: Fetch signing files
         script: |
+          if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ]; then
+            echo "❌ ERROR: APP_STORE_CONNECT_ISSUER_ID is missing from Environment Variables!"
+            echo "Please go to Codemagic -> App Settings -> Environment Variables and ensure it is added correctly."
+            exit 1
+          fi
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Use signing files
         script: |
