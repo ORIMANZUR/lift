@@ -22,6 +22,9 @@ workflows:
             echo "Please go to Codemagic -> App Settings -> Environment Variables and ensure it is added correctly."
             exit 1
           fi
+          echo "🔍 List of Critical Certificates on Account:"
+          app-store-connect certificates
+          
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Use signing files
         script: |
