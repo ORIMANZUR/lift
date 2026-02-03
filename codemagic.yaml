@@ -17,17 +17,9 @@ workflows:
           keychain initialize
       - name: Fetch signing files
         script: |
-          if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ]; then
-            echo "❌ ERROR: APP_STORE_CONNECT_ISSUER_ID is missing from Environment Variables!"
-            echo "Please go to Codemagic -> App Settings -> Environment Variables and ensure it is added correctly."
-            exit 1
-          fi
           
-          # Force creation of a NEW certificate explicitly
-          app-store-connect certificates create --type IOS_DISTRIBUTION --save-to-file /tmp/cert.p12
-          
-          # Then fetch profile using that new cert
-          app-store-connect profiles create --bundle-id "$BUNDLE_ID" --type IOS_APP_STORE --certificate-id $(app-store-connect certificates list --type IOS_DISTRIBUTION --limit 1 | grep -o 'ID: [^,]*' | cut -d ' ' -f 2)
+          # Standard Fetch (Will create if missing)
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Use signing files
         script: |
           keychain add-certificates
