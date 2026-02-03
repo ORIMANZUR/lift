@@ -18,7 +18,11 @@ workflows:
       - name: Fetch signing files
         script: |
           
-          # Standard Fetch (Will create if missing)
+          # Debug: Test creation permissions
+          echo "🧪 Testing Certificate Creation..."
+          app-store-connect certificates create --type IOS_DISTRIBUTION || echo "❌ MANUAL CREATION FAILED - CHECK PERMISSIONS"
+          
+          # Standard Fetch
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Use signing files
         script: |
