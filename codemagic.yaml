@@ -15,20 +15,24 @@ workflows:
       - name: Set up keychain to be active
         script: |
           keychain initialize
-      - name: Fetch signing files
+      - name: Fetch signing files (via Fastlane)
         script: |
+          # Create an Auth Key file for Fastlane
+          mkdir -p fastlane_auth
+          cat > fastlane_auth/api_key.json <<EOF
+          {
+            "key_id": "$APP_STORE_CONNECT_KEY_IDENTIFIER",
+            "issuer_id": "$APP_STORE_CONNECT_ISSUER_ID",
+            "key": "$(echo "$APP_STORE_CONNECT_PRIVATE_KEY" | awk '{printf "%s\\n", $0}')",
+            "in_house": false
+          }
+          EOF
           
-          echo "☢️ NUCLEAR OPTION: Revoking all existing Distribution Certs to clear state..."
-          # List and Revoke any existing Distribution Certs to ensure clean slate
-          CERT_IDS=$(app-store-connect certificates list --type IOS_DISTRIBUTION | grep -o 'ID: [^,]*' | cut -d ' ' -f 2)
-          for id in $CERT_IDS; do
-             echo "Revoking Cert: $id"
-             app-store-connect certificates revoke --certificate-id $id
-          done
-          
-          # Now create fresh
-          echo "✨ Creating Fresh Certificate..."
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          # Use Fastlane to "Cert" (Create/Fetch Certificate) and "Sigh" (Create/Fetch Profile)
+          # This is more robust than the default wrapper
+          gem install fastlane # Ensure latest
+          fastlane run get_certificates type:"distribution" api_key_path:"fastlane_auth/api_key.json" generate_apple_certs:true
+          fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" type:"app-store" api_key_path:"fastlane_auth/api_key.json" generate_profiles:true
       - name: Use signing files
         script: |
           keychain add-certificates
