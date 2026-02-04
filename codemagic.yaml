@@ -26,10 +26,12 @@ workflows:
           # 1. Export Auth for ALL Fastlane tools (produce, cert, sigh)
           export APP_STORE_CONNECT_API_KEY_PATH=$PWD/fastlane_auth/api_key.json
           
-          # 2. Register App ID (Idempotent - will skip if exists)
-          fastlane run produce app_identifier:"$BUNDLE_ID" app_name:"Lift 14 AI" language:"en-US"
+          # 2. Register App ID (Dev Portal) and Create App (App Store)
+          # We split 'produce' into enabling parts which work better with API Keys
+          fastlane run create_app_identifier app_identifier:"$BUNDLE_ID" app_name:"Lift 14 AI"
+          fastlane run create_app_online app_identifier:"$BUNDLE_ID" app_name:"Lift 14 AI" language:"en-US" || echo "⚠️ App Store entry might already exist or failed, proceeding..."
           
-          # 3. Get Certificate
+          # 3. Get Certificate (User MUST revoke old ones first!)
           fastlane run get_certificates generate_apple_certs:true
           
           # 4. Get Profile
