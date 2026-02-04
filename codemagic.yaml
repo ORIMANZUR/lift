@@ -107,11 +107,22 @@ workflows:
       - name: Build IPA (Flutter Build + Fastlane Gym)
         script: |
           # 1. Build Flutter assets (No signing)
-          # This compiles Dart -> C++ -> Frameworks, but skips the IPA signing step
           flutter build ios --release --no-codesign
           
-          # 2. Archive & Export IPA using Fastlane Gym
-          # Gym is smarter about finding the Certs/Profiles we just downloaded
+          # 2. Extract Team ID from the Profile we just fetched
+          # (Xcode needs the Team ID for manual signing, so we extract it from the valid profile)
+          PROFILE_PATH=$(find . -maxdepth 1 -name "*.mobileprovision" | head -n 1)
+          if [ -z "$PROFILE_PATH" ]; then
+            echo "❌ No mobileprovision file found in root!"
+            exit 1
+          fi
+          echo "Found Profile: $PROFILE_PATH"
+          
+          # Decode the profile and extract TeamIdentifier[0]
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+          echo "✅ Detected Team ID: $TEAM_ID"
+          
+          # 3. Archive & Export IPA using Fastlane Gym
           gem install fastlane
           fastlane run build_app \
             workspace:"ios/Runner.xcworkspace" \
@@ -121,7 +132,7 @@ workflows:
             output_directory:"build/ios/ipa" \
             output_name:"Lift14.ipa" \
             clean:true \
-            xcargs:"PROVISIONING_PROFILE_SPECIFIER='$BUNDLE_ID AppStore' CODE_SIGN_STYLE='Manual' CODE_SIGN_IDENTITY='Apple Distribution'"
+            xcargs:"PROVISIONING_PROFILE_SPECIFIER='$BUNDLE_ID AppStore' CODE_SIGN_STYLE='Manual' CODE_SIGN_IDENTITY='Apple Distribution' DEVELOPMENT_TEAM='$TEAM_ID'"
             
       - name: Publish to TestFlight
         script: |
