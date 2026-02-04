@@ -72,12 +72,30 @@ workflows:
           
           # 3. Profile (Create/Fetch)
           fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" force:true
-      - name: Use signing files
-        script: |
-          keychain add-certificates
+          
       - name: Set up code signing settings on Xcode project
         script: |
-          xcode-project use-profiles
+          # Disable "Automatic Signing" and set the Profile manually
+          gem install fastlane
+          fastlane run update_code_signing_settings use_automatic_signing:false targets:"Runner" path:"ios/Runner.xcodeproj"
+          fastlane run update_project_provisioning profile:"$BUNDLE_ID AppStore" target:"Runner" build_configuration:"Release" path:"ios/Runner.xcodeproj"
+          
+          # Generate Export Options Plist manually (since we bypassed CM's tools)
+          cat > ios/export_options.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$BUNDLE_ID</key>
+              <string>$BUNDLE_ID AppStore</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
       - name: Get Flutter dependencies
         script: |
           flutter packages pub get
@@ -87,7 +105,7 @@ workflows:
           cd ios && pod install
       - name: Build IPA
         script: |
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+          flutter build ipa --release --export-options-plist=$PWD/ios/export_options.plist
       - name: Publish to TestFlight
         script: |
           app-store-connect publish --path $(find build/ios/ipa -name "*.ipa")
