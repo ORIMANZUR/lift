@@ -24,7 +24,7 @@ workflows:
           # Use Fastlane to "Cert" (Create/Fetch Certificate) and "Sigh" (Create/Fetch Profile)
           gem install fastlane # Ensure latest
           fastlane run get_certificates api_key_path:"fastlane_auth/api_key.json" generate_apple_certs:true
-          fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" api_key_path:"fastlane_auth/api_key.json" generate_profiles:true
+          fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" api_key_path:"fastlane_auth/api_key.json" force:true
       - name: Use signing files
         script: |
           keychain add-certificates
