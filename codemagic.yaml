@@ -26,16 +26,12 @@ workflows:
           # 1. Export Auth for ALL Fastlane tools (produce, cert, sigh)
           export APP_STORE_CONNECT_API_KEY_PATH=$PWD/fastlane_auth/api_key.json
           
-          # 2. Register App ID (Dev Portal Only first to ensure Bundle ID exists)
-          # We use 'produce' which picks up the exported APP_STORE_CONNECT_API_KEY_PATH automatically
-          fastlane run produce app_identifier:"$BUNDLE_ID" app_name:"Lift 14 AI" skip_itc:true
-          
-          # 3. Get Certificate
+          # 2. Certificate (Create/Fetch)
+          # Note: We assume App ID is created manually to avoid auth issues
           fastlane run get_certificates generate_apple_certs:true
           
-          # 4. Get Profile
+          # 3. Profile (Create/Fetch)
           fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" force:true
-          fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" api_key_path:"fastlane_auth/api_key.json" force:true
       - name: Use signing files
         script: |
           keychain add-certificates
