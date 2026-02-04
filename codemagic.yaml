@@ -120,7 +120,8 @@ workflows:
             export_options:"ios/export_options.plist" \
             output_directory:"build/ios/ipa" \
             output_name:"Lift14.ipa" \
-            clean:true
+            clean:true \
+            xcargs:"PROVISIONING_PROFILE_SPECIFIER='$BUNDLE_ID AppStore' CODE_SIGN_STYLE='Manual' CODE_SIGN_IDENTITY='Apple Distribution'"
             
       - name: Publish to TestFlight
         script: |
