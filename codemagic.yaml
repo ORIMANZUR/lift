@@ -18,18 +18,16 @@ workflows:
       - name: Fetch signing files
         script: |
           
-          # Debug: Check Key Format (Safe, only prints headers)
-          echo "🔑 Checking Private Key Format..."
-          KEY_HEADER=$(echo "$APP_STORE_CONNECT_PRIVATE_KEY" | head -n 1)
-          KEY_FOOTER=$(echo "$APP_STORE_CONNECT_PRIVATE_KEY" | tail -n 1)
-          echo "Header: $KEY_HEADER"
-          echo "Footer: $KEY_FOOTER"
+          echo "☢️ NUCLEAR OPTION: Revoking all existing Distribution Certs to clear state..."
+          # List and Revoke any existing Distribution Certs to ensure clean slate
+          CERT_IDS=$(app-store-connect certificates list --type IOS_DISTRIBUTION | grep -o 'ID: [^,]*' | cut -d ' ' -f 2)
+          for id in $CERT_IDS; do
+             echo "Revoking Cert: $id"
+             app-store-connect certificates revoke --certificate-id $id
+          done
           
-          if [[ "$KEY_HEADER" != "-----BEGIN PRIVATE KEY-----" ]]; then
-             echo "❌ ERROR: Private Key header is incorrect! Found: $KEY_HEADER"
-          fi
-          
-          # Standard Fetch
+          # Now create fresh
+          echo "✨ Creating Fresh Certificate..."
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       - name: Use signing files
         script: |
