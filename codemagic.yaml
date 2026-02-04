@@ -26,8 +26,44 @@ workflows:
           # 1. Export Auth for ALL Fastlane tools (produce, cert, sigh)
           export APP_STORE_CONNECT_API_KEY_PATH=$PWD/fastlane_auth/api_key.json
           
-          # 2. Certificate (Create/Fetch)
-          # Note: We assume App ID is created manually to avoid auth issues
+          # 2. AUTOMATED CLEANUP & SETUP (Ruby/Spaceship)
+          # This script manually connects to Apple to:
+          # A) Revoke the "Limit Reached" certificates.
+          # B) Create the App ID if it's missing.
+          cat > cleanup.rb <<EOF
+          require 'spaceship'
+          
+          puts "🚀 Starting Auto-Cleanup..."
+          key_path = ENV['APP_STORE_CONNECT_API_KEY_PATH']
+          token = Spaceship::ConnectAPI::Token.from_json_file(key_path)
+          Spaceship::ConnectAPI.token = token
+          
+          # A) Revoke Excess Certificates
+          puts "🔍 Scanning Certificates..."
+          Spaceship::ConnectAPI::Certificate.all(filter: {certificateType: 'IOS_DISTRIBUTION'}).each do |c|
+            puts "  - Revoking old cert: #{c.id}"
+            c.delete!
+          end
+          puts "✅ Certificates cleared."
+          
+          # B) Ensure App ID Exists
+          bid = '$BUNDLE_ID'
+          puts "🔍 Checking App ID: #{bid}..."
+          existing = Spaceship::ConnectAPI::BundleId.all(filter: {identifier: bid}).first
+          if existing
+            puts "  - App ID exists. Skipping."
+          else
+            puts "  - Creating App ID..."
+            Spaceship::ConnectAPI::BundleId.create(identifier: bid, name: 'Lift 14 AI', platform: 'IOS')
+            puts "✅ App ID Created."
+          end
+          EOF
+          
+          # Run the helper script
+          gem install spaceship
+          ruby cleanup.rb
+          
+          # 3. Get Certificate (Now clean!)
           fastlane run get_certificates generate_apple_certs:true
           
           # 3. Profile (Create/Fetch)
