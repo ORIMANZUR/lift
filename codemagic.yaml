@@ -23,7 +23,15 @@ workflows:
           
           # Use Fastlane to "Cert" (Create/Fetch Certificate) and "Sigh" (Create/Fetch Profile)
           gem install fastlane # Ensure latest
+          
+          # 1. Register App ID (and create App Store entry)
+          fastlane run produce app_identifier:"$BUNDLE_ID" app_name:"Lift 14 AI" language:"en-US" api_key_path:"fastlane_auth/api_key.json"
+          
+          # 2. Get Certificate
           fastlane run get_certificates api_key_path:"fastlane_auth/api_key.json" generate_apple_certs:true
+          
+          # 3. Get Profile
+          fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" api_key_path:"fastlane_auth/api_key.json" force:true
           fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" api_key_path:"fastlane_auth/api_key.json" force:true
       - name: Use signing files
         script: |
