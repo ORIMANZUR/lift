@@ -17,22 +17,25 @@ workflows:
           keychain initialize
       - name: Fetch signing files (via Fastlane)
         script: |
-          # Create an Auth Key file for Fastlane using Python to ensure valid JSON
+          # 0. Get the active keychain (set up by Codemagic)
+          # We must put certs here so they are unlocked and available to xcodebuild
+          KEYCHAIN_PATH=$(security default-keychain | xargs)
+          echo "Using Keychain: $KEYCHAIN_PATH"
+          
+          # Create an Auth Key file
           mkdir -p fastlane_auth
           python3 -c 'import json, os; open("fastlane_auth/api_key.json", "w").write(json.dumps({"key_id": os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"], "issuer_id": os.environ["APP_STORE_CONNECT_ISSUER_ID"], "key": os.environ["APP_STORE_CONNECT_PRIVATE_KEY"], "in_house": False}))'
           
-          # Use Fastlane to "Cert" (Create/Fetch Certificate) and "Sigh" (Create/Fetch Profile)
-          gem install fastlane # Ensure latest
-          # 1. Export Auth for ALL Fastlane tools (produce, cert, sigh)
+          # Install Fastlane & Spaceship
+          gem install fastlane
+          gem install spaceship
+          
+          # 1. Export Auth for ALL Fastlane tools
           export APP_STORE_CONNECT_API_KEY_PATH=$PWD/fastlane_auth/api_key.json
           
           # 2. AUTOMATED CLEANUP & SETUP (Ruby/Spaceship)
-          # This script manually connects to Apple to:
-          # A) Revoke the "Limit Reached" certificates.
-          # B) Create the App ID if it's missing.
           cat > cleanup.rb <<EOF
           require 'spaceship'
-          
           puts "🚀 Starting Auto-Cleanup..."
           key_path = ENV['APP_STORE_CONNECT_API_KEY_PATH']
           token = Spaceship::ConnectAPI::Token.from_json_file(key_path)
@@ -40,14 +43,13 @@ workflows:
           
           # A) Revoke Excess Certificates
           puts "🔍 Scanning Certificates..."
-          # Check both legacy iOS and new Universal Distribution types
           ['IOS_DISTRIBUTION', 'DISTRIBUTION'].each do |type|
             Spaceship::ConnectAPI::Certificate.all(filter: {certificateType: type}).each do |c|
               puts "  - Revoking old cert (#{type}): #{c.id}"
               c.delete!
             end
           end
-          puts "✅ Certificates cleared. Waiting 5s for propagation..."
+          puts "✅ Certificates cleared. Waiting 5s..."
           sleep 5
           
           # B) Ensure App ID Exists
@@ -55,32 +57,29 @@ workflows:
           puts "🔍 Checking App ID: #{bid}..."
           existing = Spaceship::ConnectAPI::BundleId.all(filter: {identifier: bid}).first
           if existing
-            puts "  - App ID exists. Skipping."
+             puts "  - App ID exists."
           else
-            puts "  - Creating App ID..."
-            Spaceship::ConnectAPI::BundleId.create(identifier: bid, name: 'Lift 14 AI', platform: 'IOS')
-            puts "✅ App ID Created."
+             Spaceship::ConnectAPI::BundleId.create(identifier: bid, name: 'Lift 14 AI', platform: 'IOS')
+             puts "✅ App ID Created."
           end
           EOF
           
-          # Run the helper script
-          gem install spaceship
           ruby cleanup.rb
           
-          # 3. Get Certificate (Now clean!)
-          fastlane run get_certificates generate_apple_certs:true
+          # 3. Get Certificate (Install into the ACTIVE keychain)
+          fastlane run get_certificates generate_apple_certs:true keychain_path:"$KEYCHAIN_PATH"
           
-          # 3. Profile (Create/Fetch)
+          # 4. Get Profile
           fastlane run get_provisioning_profile app_identifier:"$BUNDLE_ID" force:true
           
       - name: Set up code signing settings on Xcode project
         script: |
-          # Disable "Automatic Signing" and set the Profile manually
           gem install fastlane
-          fastlane run update_code_signing_settings use_automatic_signing:false targets:"Runner" path:"ios/Runner.xcodeproj"
+          # Force "Apple Distribution" Identity and Manual Signing
+          fastlane run update_code_signing_settings use_automatic_signing:false targets:"Runner" path:"ios/Runner.xcodeproj" code_sign_identity:"Apple Distribution"
           fastlane run update_project_provisioning profile:"$BUNDLE_ID AppStore" target:"Runner" build_configuration:"Release" path:"ios/Runner.xcodeproj"
           
-          # Generate Export Options Plist manually (since we bypassed CM's tools)
+          # Generate Export Options Plist
           cat > ios/export_options.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -104,12 +103,12 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios
-          # 'pod install' needs Generated.xcconfig, which 'pub get' should create.
-          # We run repo-update to be safe.
           pod install --repo-update
       - name: Build IPA
         script: |
+          # Build using the export options
           flutter build ipa --release --export-options-plist=$PWD/ios/export_options.plist
+          
       - name: Publish to TestFlight
         script: |
           app-store-connect publish --path $(find build/ios/ipa -name "*.ipa")
