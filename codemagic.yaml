@@ -40,11 +40,15 @@ workflows:
           
           # A) Revoke Excess Certificates
           puts "🔍 Scanning Certificates..."
-          Spaceship::ConnectAPI::Certificate.all(filter: {certificateType: 'IOS_DISTRIBUTION'}).each do |c|
-            puts "  - Revoking old cert: #{c.id}"
-            c.delete!
+          # Check both legacy iOS and new Universal Distribution types
+          ['IOS_DISTRIBUTION', 'DISTRIBUTION'].each do |type|
+            Spaceship::ConnectAPI::Certificate.all(filter: {certificateType: type}).each do |c|
+              puts "  - Revoking old cert (#{type}): #{c.id}"
+              c.delete!
+            end
           end
-          puts "✅ Certificates cleared."
+          puts "✅ Certificates cleared. Waiting 5s for propagation..."
+          sleep 5
           
           # B) Ensure App ID Exists
           bid = '$BUNDLE_ID'
