@@ -99,10 +99,13 @@ workflows:
       - name: Get Flutter dependencies
         script: |
           flutter packages pub get
+          flutter precache --ios
       - name: Install CocoaPods dependencies
         script: |
-          find . -name "Podfile" -exec dir {} \;
-          cd ios && pod install
+          cd ios
+          # 'pod install' needs Generated.xcconfig, which 'pub get' should create.
+          # We run repo-update to be safe.
+          pod install --repo-update
       - name: Build IPA
         script: |
           flutter build ipa --release --export-options-plist=$PWD/ios/export_options.plist
