@@ -18,9 +18,16 @@ workflows:
       - name: Fetch signing files
         script: |
           
-          # Debug: Test creation permissions
-          echo "🧪 Testing Certificate Creation..."
-          app-store-connect certificates create --type IOS_DISTRIBUTION || echo "❌ MANUAL CREATION FAILED - CHECK PERMISSIONS"
+          # Debug: Check Key Format (Safe, only prints headers)
+          echo "🔑 Checking Private Key Format..."
+          KEY_HEADER=$(echo "$APP_STORE_CONNECT_PRIVATE_KEY" | head -n 1)
+          KEY_FOOTER=$(echo "$APP_STORE_CONNECT_PRIVATE_KEY" | tail -n 1)
+          echo "Header: $KEY_HEADER"
+          echo "Footer: $KEY_FOOTER"
+          
+          if [[ "$KEY_HEADER" != "-----BEGIN PRIVATE KEY-----" ]]; then
+             echo "❌ ERROR: Private Key header is incorrect! Found: $KEY_HEADER"
+          fi
           
           # Standard Fetch
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
